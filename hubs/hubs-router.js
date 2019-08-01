@@ -5,6 +5,11 @@ const Messages = require('../messages/messages-model.js');
 
 const router = express.Router();
 
+router.use((req, res, next) => {
+  console.log('hubs router!');
+  next();
+})
+
 // this only runs if the url has /api/hubs in it
 router.get('/', async (req, res) => {
   try {
@@ -21,25 +26,11 @@ router.get('/', async (req, res) => {
 
 // /api/hubs/:id
 
-router.get('/:id', async (req, res) => {
-  try {
-    const hub = await Hubs.findById(req.params.id);
-
-    if (hub) {
-      res.status(200).json(hub);
-    } else {
-      res.status(404).json({ message: 'Hub not found' });
-    }
-  } catch (error) {
-    // log error to server
-    console.log(error);
-    res.status(500).json({
-      message: 'Error retrieving the hub',
-    });
-  }
+router.get('/:id', validateId, async (req, res) => {
+    res.status(200).json(req.hub);
 });
 
-router.post('/', async (req, res) => {
+router.post('/', validateBody, async (req, res) => {
   try {
     const hub = await Hubs.add(req.body);
     res.status(201).json(hub);
@@ -52,7 +43,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', validateId, async (req, res) => {
   try {
     const count = await Hubs.remove(req.params.id);
     if (count > 0) {
@@ -69,7 +60,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', validateId, validateBody, async (req, res) => {
   try {
     const hub = await Hubs.update(req.params.id, req.body);
     if (hub) {
@@ -103,7 +94,7 @@ router.get('/:id/messages', async (req, res) => {
 });
 
 // add an endpoint for adding new message to a hub
-router.post('/:id/messages', async (req, res) => {
+router.post('/:id/messages', validateBody, async (req, res) => {
   const messageInfo = { ...req.body, hub_id: req.params.id };
 
   try {
@@ -117,5 +108,39 @@ router.post('/:id/messages', async (req, res) => {
     });
   }
 });
+
+
+async function validateId(req, res, next) {
+  try {
+    const { id } = req.params;
+    const hub = await Hubs.findById(id);
+    if(hub) {
+      req.hub = hub;
+      next();
+    } else {
+      res.status(404).json({message: 'id not found'});
+    }
+  }
+  catch (error) {
+    res.status(500).json(error)
+  }
+}
+
+async function validateBody(req, res, next) {
+  try {
+    const { name } = req.body;
+    const post = await Hubs.add(name);
+    console.log(post, "post");
+    if(post) {
+      console.log(name)
+      name = post;
+      next();
+    } else {
+      res.status(403).json({message: 'body not found'});
+    }
+  } catch (error) {
+    res.status(500).json(error);
+  }
+}
 
 module.exports = router;
